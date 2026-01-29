@@ -1,0 +1,136 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  password  String   
+  role      String   // CUSTOMER, AGENT, SUPERVISOR, MANAGER, QA, ANALYTICS
+  createdAt DateTime @default(now())
+  
+  ticketsCreated Ticket[]  @relation("CreatedBy")
+  ticketsAssigned Ticket[] @relation("AssignedTo")
+  comments       Comment[]
+  casesManaged   Case[]
+  audits         AuditLog[] // QA User Story: "audit ticket handling processes"
+}
+
+model Ticket {
+  id          String    @id @default(uuid())
+  subject     String
+  description String
+  status      String    @default("OPEN") 
+  priority    String    @default("MEDIUM") 
+  category    String    
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  resolvedAt  DateTime? // Analytics Story: "analyze resolution times"
+
+  customerId  String
+  customer    User      @relation("CreatedBy", fields: [customerId], references: [id])
+  
+  assignedToId String?
+  assignedTo   User?    @relation("AssignedTo", fields: [assignedToId], references: [id])
+
+  comments    Comment[]
+  attachments Attachment[] // Customer Story: "add attachments"
+  cases       CaseTicket[]
+  feedback    Feedback?
+  audits      AuditLog[]
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  isInternal Boolean @default(false) 
+  createdAt DateTime @default(now())
+  
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Attachment {
+  id        String   @id @default(uuid())
+  fileName  String
+  filePath  String   // In a real app, this points to S3. Here, we mock the path.
+  uploadedAt DateTime @default(now())
+  
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+}
+
+model Feedback {
+  id        String   @id @default(uuid())
+  rating    Int      // 1-5
+  comment   String?
+  ticketId  String   @unique
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+}
+
+// --- CASE MANAGEMENT MODULE ---
+
+model Case {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  status      String   @default("ACTIVE") // ACTIVE, RESOLVED
+  createdAt   DateTime @default(now())
+  
+  managerId   String
+  manager     User     @relation(fields: [managerId], references: [id])
+  
+  tickets     CaseTicket[]
+  milestones  Milestone[] // Case Manager Story: "establish case milestones"
+}
+
+model CaseTicket {
+  caseId    String
+  ticketId  String
+  case      Case    @relation(fields: [caseId], references: [id])
+  ticket    Ticket  @relation(fields: [ticketId], references: [id])
+
+  @@id([caseId, ticketId])
+}
+
+model Milestone {
+  id        String   @id @default(uuid())
+  title     String
+  dueDate   DateTime
+  isCompleted Boolean @default(false)
+  
+  caseId    String
+  case      Case     @relation(fields: [caseId], references: [id])
+}
+
+// --- SUPERVISOR & QA MODULES ---
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String   // e.g., "STATUS_CHANGE", "ASSIGNMENT"
+  details   String
+  timestamp DateTime @default(now())
+  
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+  
+  actorId   String
+  actor     User     @relation(fields: [actorId], references: [id])
+}
+
+model RoutingRule {
+  id        String   @id @default(uuid())
+  category  String   // If category is "Billing"...
+  assignToEmail String // ...auto-assign to "billing-agent@demo.com"
+}
