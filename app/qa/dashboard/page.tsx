@@ -69,10 +69,6 @@ export default function QADashboard() {
             <Card>
               <CardHeader><CardTitle>Closed Ticket Reviews</CardTitle></CardHeader>
               <CardContent>
-                <div className="mb-4 text-sm text-muted-foreground">
-
-[Image of customer satisfaction feedback loop]
-</div>
                 <Table>
                   <TableHeader>
                     <TableRow>
